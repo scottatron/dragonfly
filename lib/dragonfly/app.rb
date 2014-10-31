@@ -103,9 +103,14 @@ module Dragonfly
         obj.server.add_to_fetch_url_whitelist(patterns)
       end
 
-      writer :dragonfly_url, :protect_from_dos_attacks, :url_format, :url_host, :url_path_prefix,
+      writer :dragonfly_url, :verify_urls, :url_format, :url_host, :url_path_prefix,
              :for => :server
       meth :before_serve, :for => :server
+
+      def protect_from_dos_attacks(boolean)
+        verify_urls(boolean)
+        Dragonfly.warn("configuration option protect_from_dos_attacks is deprecated - use verify_urls instead")
+      end
 
       def method_missing(meth, *args)
         raise NoMethodError, "no method '#{meth}' for App configuration - but the configuration API has changed! see docs at http://markevans.github.io/dragonfly for details"
@@ -233,7 +238,7 @@ module Dragonfly
 
     def remote_url_for(uid, opts={})
       datastore.url_for(uid, opts)
-    rescue NoMethodError => e
+    rescue NoMethodError
       raise NotImplementedError, "The datastore doesn't support serving content directly - #{datastore.inspect}"
     end
 
@@ -258,12 +263,7 @@ module Dragonfly
       'application/octet-stream'
     end
 
-    def secret
-      @secret ||= 'secret yo'
-    end
-    attr_writer :secret
-
-    attr_accessor :allow_legacy_urls
+    attr_accessor :allow_legacy_urls, :secret
 
     def define_macro(klass, name)
       raise NoMethodError, "define_macro is deprecated - instead of defining #{name}, just extend #{klass.name} with Dragonfly::Model and use dragonfly_accessor"

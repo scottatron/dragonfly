@@ -405,7 +405,7 @@ describe Dragonfly::Job do
     end
 
     it "should be of the correct format" do
-      @job.sha.should =~ /^\w{8}$/
+      @job.sha.should =~ /^\w{16}$/
     end
 
     it "should be the same for the same job steps" do
@@ -414,6 +414,11 @@ describe Dragonfly::Job do
 
     it "should be different for different jobs" do
       @app.fetch('figs').sha.should_not == @job.sha
+    end
+
+    it "should raise error when secret is unspecified" do
+      @app.secret = nil
+      expect{ @app.fetch('figs').sha }.to raise_error(Dragonfly::Job::CannotGenerateSha)
     end
   end
 

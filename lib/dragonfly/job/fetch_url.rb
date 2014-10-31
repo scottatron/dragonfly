@@ -2,6 +2,7 @@ require 'uri'
 require 'net/http'
 require 'base64'
 require 'dragonfly/job/step'
+require 'addressable/uri'
 
 module Dragonfly
   class Job
@@ -26,35 +27,35 @@ module Dragonfly
       end
 
       def url
-        @url ||= uri =~ /^\w+:[^\d]/ ? uri : "http://#{uri}"
+        @url ||= uri =~ /\A\w+:[^\d]/ ? uri : "http://#{uri}"
       end
 
       def filename
         return if data_uri?
-        @filename ||= parse_url(url).path[/[^\/]+$/]
+        @filename ||= parse_url(url).path[/[^\/]+\z/]
       end
 
       def data_uri?
-        uri =~ /^data:/
+        uri =~ /\Adata:/
       end
 
       def apply
         if data_uri?
           update_from_data_uri
         else
-          data = get(url)
+          data = get_following_redirects(url)
           job.content.update(data, 'name' => filename)
         end
       end
 
       private
 
-      def get(url, redirect_limit=10)
+      def get_following_redirects(url, redirect_limit=10)
         raise TooManyRedirects, "url #{url} redirected too many times" if redirect_limit == 0
-        response = Net::HTTP.get_response(parse_url(url))
+        response = get(url)
         case response
         when Net::HTTPSuccess then response.body || ""
-        when Net::HTTPRedirection then get(response['location'], redirect_limit-1)
+        when Net::HTTPRedirection then get_following_redirects(response['location'], redirect_limit-1)
         else
           response.error!
         end
@@ -62,8 +63,15 @@ module Dragonfly
         raise ErrorResponse.new(e.response.code.to_i, e.response.body)
       end
 
+      def get(url)
+        url = parse_url(url)
+        http = Net::HTTP.new(url.host, url.port)
+        http.use_ssl = true if url.scheme == 'https'
+        response = http.get(url.request_uri)
+      end
+
       def update_from_data_uri
-        mime_type, b64_data = uri.scan(/^data:([^;]+);base64,(.*)$/)[0]
+        mime_type, b64_data = uri.scan(/\Adata:([^;]+);base64,(.*)$/)[0]
         if mime_type && b64_data
           data = Base64.decode64(b64_data)
           ext = app.ext_for(mime_type)
@@ -77,7 +85,10 @@ module Dragonfly
         URI.parse(url)
       rescue URI::InvalidURIError
         begin
-          URI.parse(URI.escape(url))
+          encoded_uri = Addressable::URI.parse(url).normalize.to_s
+          URI.parse(encoded_uri)
+        rescue Addressable::URI::InvalidURIError => e
+          raise BadURI, e.message
         rescue URI::InvalidURIError => e
           raise BadURI, e.message
         end

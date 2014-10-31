@@ -1,3 +1,28 @@
+1.0.7 (2014-08-26)
+===================
+Changes
+--------
+- Job#sha uses better algorithm
+- renamed `protect_from_dos_attacks` -> `verify_urls` and turn on by default
+
+1.0.6 (2014-08-22)
+===================
+Features
+--------
+- env can be accessed by routed endpoint blocks
+
+Fixes
+-----
+- analyser cache doesn't get stored in meta for a given piece of meta - can mess with stringifying analyser return values
+- removed default secret, forcing user to specify one explicitly
+- deal with "[" character problems in urls https://github.com/markevans/dragonfly/pull/337
+
+1.0.5 (2014-05-15)
+===================
+Fixes
+-----
+- fetch_url wasn't correctly getting https endpoints on Ruby approx < 2
+
 1.0.4 (2014-04-11)
 ===================
 Fixes
